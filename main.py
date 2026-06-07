@@ -10,7 +10,7 @@ import json
 # Carregar variáveis de ambiente
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-RENDER_URL = os.getenv('RENDER_URL', 'https://baccarat-telegram-bot.onrender.com')
+RENDER_URL = os.getenv('RENDER_URL', '')
 
 # Configurar logging
 logging.basicConfig(
@@ -146,22 +146,22 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_games[user_id] = BaccaratGame()
     
     game = user_games[user_id]
-    stats = game.get_stats()
+    stats_data = game.get_stats()
     
     message = f"""
 📊 ESTATÍSTICAS 📊
 
-Total de mãos: {stats['total']}
-🏦 Banqueiro: {stats['banker']} vitórias
-🎲 Jogador: {stats['player']} vitórias
-🤝 Empates: {stats['ties']}
+Total de mãos: {stats_data['total']}
+🏦 Banqueiro: {stats_data['banker']} vitórias
+🎲 Jogador: {stats_data['player']} vitórias
+🤝 Empates: {stats_data['ties']}
 
-Maior sequência Banqueiro: {stats['max_banker_streak']}
-Maior sequência Jogador: {stats['max_player_streak']}
+Maior sequência Banqueiro: {stats_data['max_banker_streak']}
+Maior sequência Jogador: {stats_data['max_player_streak']}
 
-Taxa de vitória Banqueiro: {stats['banker_pct']:.1f}%
-Taxa de vitória Jogador: {stats['player_pct']:.1f}%
-Taxa de Empates: {stats['tie_pct']:.1f}%
+Taxa de vitória Banqueiro: {stats_data['banker_pct']:.1f}%
+Taxa de vitória Jogador: {stats_data['player_pct']:.1f}%
+Taxa de Empates: {stats_data['tie_pct']:.1f}%
     """
     
     await update.message.reply_text(message)
@@ -220,11 +220,6 @@ def health():
 def index():
     """Index"""
     return 'Bot Baccarat rodando! 🎲', 200
-
-async def set_webhook():
-    """Configura o webhook"""
-    await application.bot.set_webhook(url=f'{RENDER_URL}/{TOKEN}')
-    logger.info(f'Webhook configurado: {RENDER_URL}/{TOKEN}')
 
 def init_app():
     """Inicializa o bot e o Flask"""
