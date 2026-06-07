@@ -3,11 +3,14 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from dotenv import load_dotenv
+from flask import Flask, request
 from game import BaccaratGame
+import json
 
 # Carregar variáveis de ambiente
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+RENDER_URL = os.getenv('RENDER_URL', 'https://baccarat-telegram-bot.onrender.com')
 
 # Configurar logging
 logging.basicConfig(
@@ -16,8 +19,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Flask app
+app = Flask(__name__)
+
 # Dicionário global para rastrear usuários
 user_games = {}
+application = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Inicia o bot"""
@@ -191,8 +198,38 @@ NÃO é uma garantia de ganho. Use com responsabilidade! 🎯
     """
     await update.message.reply_text(help_text)
 
-def main():
-    """Inicia o bot"""
+# Webhook
+@app.route(f'/{TOKEN}', methods=['POST'])
+async def webhook():
+    """Recebe updates do Telegram via webhook"""
+    try:
+        data = request.get_json()
+        update = Update.de_json(data, application.bot)
+        await application.process_update(update)
+        return 'ok', 200
+    except Exception as e:
+        logger.error(f'Erro no webhook: {e}')
+        return 'error', 500
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check"""
+    return {'status': 'ok'}, 200
+
+@app.route('/', methods=['GET'])
+def index():
+    """Index"""
+    return 'Bot Baccarat rodando! 🎲', 200
+
+async def set_webhook():
+    """Configura o webhook"""
+    await application.bot.set_webhook(url=f'{RENDER_URL}/{TOKEN}')
+    logger.info(f'Webhook configurado: {RENDER_URL}/{TOKEN}')
+
+def init_app():
+    """Inicializa o bot e o Flask"""
+    global application
+    
     application = Application.builder().token(TOKEN).build()
 
     # Handlers dos comandos
@@ -204,10 +241,17 @@ def main():
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("reset", reset))
     application.add_handler(CommandHandler("ajuda", ajuda))
+    
+    logger.info("Bot inicializado com webhook!")
+    
+    return app
 
-    # Inicia o bot
-    logger.info("Bot iniciado!")
-    application.run_polling()
+# Inicializa para o Gunicorn
+if __name__ != '__main__':
+    app = init_app()
+    logger.info("App criado para Gunicorn")
 
 if __name__ == '__main__':
-    main()
+    app = init_app()
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
